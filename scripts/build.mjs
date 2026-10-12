@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const config = require('../site/config.js');
-const output = path.join(root, 'dist');
+const pagesPreview = process.env.LDC_GITHUB_PAGES === 'true';
+const output = path.join(root, pagesPreview ? 'pages-dist' : 'dist');
 await mkdir(path.join(output, 'assets'), { recursive: true });
 const original = await readFile(path.join(root, '02-design-pagina-inicial.html'), 'utf8');
 const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -38,10 +39,14 @@ const pages = [
 let css = original.match(/<style>([\s\S]*?)<\/style>/)[1];
 css += await readFile(path.join(root, 'site/extra.css'), 'utf8');
 await writeFile(path.join(output, 'assets/style.css'), css);
-await copyFile(path.join(root, 'site/config.js'), path.join(output, 'assets/config.js'));
+if (pagesPreview) await writeFile(path.join(output, 'assets/config.js'), `window.LDC_CONFIG = ${JSON.stringify({ ...config, staticPreview: true })};\n`);
+else await copyFile(path.join(root, 'site/config.js'), path.join(output, 'assets/config.js'));
 await copyFile(path.join(root, 'site/app.js'), path.join(output, 'assets/app.js'));
-for (const file of ['login.html', 'admin.html']) await copyFile(path.join(root, 'site', file), path.join(output, file));
-for (const file of ['admin.css', 'admin.js']) await copyFile(path.join(root, 'site', file), path.join(output, 'assets', file));
+for (const file of ['login.html', 'admin.html']) {
+  if (pagesPreview) await writeFile(path.join(output, file), '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Área administrativa — LDC Carpintaria</title><link rel="stylesheet" href="assets/admin.css"></head><body class="login-page"><main class="login-shell"><div class="login-brand"><img src="assets/logo.jpg" alt="LDC Carpintaria" width="120" height="120"><span>VITRINE DIGITAL</span><h1>LDC Carpintaria</h1><a href="index.html">← Voltar para o site</a></div><section class="login-card"><span class="eyebrow">Prévia do site</span><h2>Área administrativa</h2><p>O login e o cadastro de produtos ainda não estão disponíveis nesta prévia.</p><p>Você pode consultar a vitrine e solicitar um orçamento pelo WhatsApp.</p><a href="produtos.html">Ver produtos →</a></section></main></body></html>');
+  else await copyFile(path.join(root, 'site', file), path.join(output, file));
+}
+for (const file of pagesPreview ? ['admin.css'] : ['admin.css', 'admin.js']) await copyFile(path.join(root, 'site', file), path.join(output, 'assets', file));
 await copyFile(path.join(root, '573816091_17847848052596195_2255176578593069298_n.jpg'), path.join(output, 'assets/logo.jpg'));
 // Arquivos adicionados em site/assets são copiados para dist/assets.
 async function copyAssets(source, target) {
@@ -63,4 +68,5 @@ for (const [file, title, description, main] of pages) {
 }
 await writeFile(path.join(output, 'robots.txt'), config.demo ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\n${baseUrl ? `Sitemap: ${new URL('sitemap.xml', baseUrl).href}\n` : ''}`);
 if (baseUrl) await writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(([file]) => `<url><loc>${escape(new URL(file === 'index.html' ? './' : file, baseUrl).href)}</loc></url>`).join('')}</urlset>`);
-console.log('Build concluído: cinco páginas e recursos locais em dist/.');
+if (pagesPreview) await writeFile(path.join(output, '.nojekyll'), '');
+console.log(`Build concluído em ${pagesPreview ? 'pages-dist/ (prévia estática)' : 'dist/ (site com servidor)'}.`);

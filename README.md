@@ -1,5 +1,9 @@
 # LDC Carpintaria
 
+Prévia pública no GitHub Pages: https://L1pesenne.github.io/LDC-carpintaria/
+
+Cada push em `main` publica automaticamente a prévia estática pelo workflow `.github/workflows/pages.yml`. Essa prévia usa os produtos demonstrativos de `site/config.js`, sem acesso ao banco privado local. Login e cadastro são apresentados como indisponíveis nessa publicação; continuam funcionando na versão com Node.js.
+
 Site institucional e vitrine de produtos, com painel administrativo para gerenciar nome, descrição, categoria, preço e imagem. Identidade visual em amarelo, preto e branco e orçamento pelo WhatsApp.
 
 ## Executar localmente

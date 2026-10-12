@@ -43,7 +43,7 @@
   });
   const grid = doc.getElementById('products') || doc.getElementById('product-cards');
   if (!grid) return;
-  if (root.location.protocol !== 'file:') {
+  if (root.location.protocol !== 'file:' && !config.staticPreview) {
     try {
       const response = await fetch('/api/products', { cache: 'no-store' });
       if (!response.ok) throw new Error('Catálogo indisponível');
