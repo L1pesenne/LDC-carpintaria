@@ -1,0 +1,66 @@
+import { readFile, writeFile, mkdir, copyFile, readdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
+const config = require('../site/config.js');
+const output = path.join(root, 'dist');
+await mkdir(path.join(output, 'assets'), { recursive: true });
+const original = await readFile(path.join(root, '02-design-pagina-inicial.html'), 'utf8');
+const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+const links = [['index.html', 'Início'], ['produtos.html', 'Produtos'], ['sobre.html', 'Sobre'], ['area-de-atendimento.html', 'Atendimento'], ['contato.html', 'Contato']];
+const general = 'Olá! Vim pelo site da LDC Carpintaria e gostaria de solicitar um orçamento.';
+const wa = `https://wa.me/${config.whatsapp}?text=${encodeURIComponent(general)}`;
+const pending = config.bulkRuleConfirmed ? '' : '<p class="editorial-note">Condição do briefing, aguardando confirmação para o catálogo.</p>';
+const conditions = `<aside class="conditions"><strong>Condições de venda</strong><p>Materiais vendidos exclusivamente a granel. Não vendemos ensacados ou fracionados neste momento.</p>${pending}<p>Entrega rápida após aprovação do pedido, com prazo combinado pelo WhatsApp.</p></aside>`;
+const finalCta = '<section class="cta"><div class="wrap cta-inner"><div><span class="eyebrow">Fale com a LDC</span><h2>Vamos conversar sobre seu pedido?</h2><p>Envie o produto que procura, a quantidade desejada e seu endereço para solicitar um orçamento.</p></div><button class="btn" data-contact>Solicitar orçamento no WhatsApp ↗</button></div></section>';
+let home = original.match(/<main>([\s\S]*?)<\/main>/)[1];
+home = home.replaceAll('03-vitrine-produtos.html', 'produtos.html');
+home = home.replace(/<div class="cards" id="product-cards">[\s\S]*?<\/div>\s*<aside class="conditions">/, () => {
+  const cards = config.products.slice(0, 3).map(product => `<article><div class="product-image">${product.image ? `<img src="${escape(product.image)}" alt="${escape(product.name)}" loading="lazy" width="600" height="420">` : 'Foto a fornecer'}</div><div class="card-content"><span class="placeholder">${escape(product.category)}</span><h3>${escape(product.name)}</h3><p>${escape(product.description)}</p><a class="btn secondary" href="${escape(`https://wa.me/${config.whatsapp}?text=${encodeURIComponent(`Olá! Vim pelo site da LDC Carpintaria e gostaria de um orçamento para ${product.name}.`)}`)}" target="_blank" rel="noopener noreferrer">Pedir orçamento ↗</a></div></article>`).join('');
+  return `<div class="cards" id="product-cards">${cards}</div><aside class="conditions">`;
+});
+if (config.bulkRuleConfirmed) home = home.replace('<p><small>Regra do briefing, pendente de confirmação para o catálogo da LDC.</small></p>', '');
+home = home.replace('data-contact>Consultar entrega', 'data-contact="coverage">Consultar entrega');
+const catalog = `<div class="wrap page"><span class="eyebrow">Vitrine digital</span><h1>Explore os produtos.<br>Peça seu orçamento.</h1><p class="lead">Consulte disponibilidade, quantidades, valores e entrega com nossa equipe pelo WhatsApp.</p><section class="catalog-controls" aria-label="Busca e categorias"><label for="search">Buscar produtos</label><input type="search" id="search" placeholder="Digite o nome ou a descrição do produto" autocomplete="off"><div class="filters" id="filters" role="group" aria-label="Filtrar por categoria"></div><p id="count" role="status" aria-live="polite" aria-atomic="true"></p></section><noscript><p>Ative o JavaScript para consultar o catálogo. Você também pode <a href="${escape(wa)}" target="_blank" rel="noopener noreferrer">pedir orientação pelo WhatsApp</a>.</p></noscript><div class="grid" id="products"></div><div class="empty" id="empty" hidden><h2>Nenhum produto encontrado.</h2><p>Tente outro termo ou limpe os filtros.</p><button class="btn secondary" id="reset">Limpar busca e filtros</button></div>${conditions}</div>${finalCta}`;
+const about = `<div class="wrap page"><span class="eyebrow">Nossa empresa</span><h1>Conheça a<br>LDC Carpintaria.</h1><div class="prose"><p>A LDC Carpintaria apresenta seus produtos em uma vitrine digital para facilitar sua consulta. Pelo WhatsApp, você conversa com nossa equipe, solicita um orçamento e combina as condições do pedido e da entrega.</p><p>Nosso atendimento contempla Seropédica e Itaguaí, respeitando o raio máximo de 20 km. Consulte a cobertura para o seu endereço.</p><p>Explore os produtos para iniciar seu pedido ou fale diretamente com o atendimento.</p><div class="actions"><a class="btn" href="produtos.html">Ver produtos</a><button class="btn secondary" data-contact>Falar com a LDC ↗</button></div></div></div>${finalCta}`;
+const coverage = `<div class="wrap page"><div class="coverage"><div><span class="eyebrow">Área de atendimento</span><h1>Consulte a entrega<br>no seu endereço.</h1><p>Atendemos em Seropédica e Itaguaí, dentro de um raio máximo de 20 km. Envie seu endereço pelo WhatsApp para confirmar a cobertura.</p><p>A entrega é rápida após a aprovação do pedido. O prazo específico será combinado no atendimento.</p><button class="btn" data-contact="coverage">Consultar entrega ↗</button></div><div class="region-panel"><span class="eyebrow">Regiões de destaque</span><div class="city">Seropédica</div><div class="city">Itaguaí</div><div class="radius">20 km</div><small>Raio máximo de atendimento</small><p>O atendimento depende da localização do endereço. Consulte antes de confirmar o pedido.</p></div></div>${conditions}</div>${finalCta}`;
+const details = [config.email && `<p><strong>E-mail:</strong> <a href="mailto:${escape(config.email)}">${escape(config.email)}</a></p>`, config.address && `<p><strong>Endereço:</strong> ${escape(config.address)}</p>`, config.hours && `<p><strong>Horário:</strong> ${escape(config.hours)}</p>`].filter(Boolean).join('');
+const contact = `<div class="wrap page"><span class="eyebrow">Contato e orçamento</span><h1>Vamos conversar<br>sobre seu pedido?</h1><div class="prose"><p>Envie o produto que procura, a quantidade desejada e seu endereço. Nossa equipe informa valores, disponibilidade e condições de entrega.</p><p><strong>WhatsApp:</strong> <a href="${escape(wa)}" target="_blank" rel="noopener noreferrer">${escape(config.phoneDisplay)}</a></p>${details}<button class="btn" data-contact>Solicitar orçamento no WhatsApp ↗</button><p class="contact-note">Orçamento, negociação e aprovação do pedido pelo WhatsApp.</p></div><section class="faq" aria-labelledby="faq-title"><h2 id="faq-title">Dúvidas frequentes</h2><details><summary>Como faço um pedido?</summary><p>Escolha um produto e clique em “Pedir orçamento”. Nossa equipe confirma disponibilidade, valores e condições pelo WhatsApp.</p></details><details><summary>Vocês vendem ensacados ou fracionados?</summary><p>Não. Neste momento, a venda é exclusiva de materiais a granel.</p>${pending}</details><details><summary>Qual é o prazo de entrega?</summary><p>A entrega é rápida após a aprovação do pedido. O prazo específico será combinado pelo WhatsApp.</p></details><details><summary>Minha região é atendida?</summary><p>Atendemos em Seropédica e Itaguaí, dentro do raio máximo de 20 km. Envie seu endereço para confirmar a cobertura.</p></details><details><summary>Posso pagar pelo site?</summary><p>O site funciona como uma vitrine. As condições de pagamento e a conclusão do pedido são tratadas pelo WhatsApp.</p></details></section></div>`;
+const pages = [
+  ['index.html', 'LDC Carpintaria — Produtos e orçamento pelo WhatsApp', 'Conheça os produtos da LDC Carpintaria e solicite orçamento pelo WhatsApp. Atendimento em Seropédica e Itaguaí, sujeito ao raio de 20 km.', home],
+  ['produtos.html', 'Produtos — LDC Carpintaria', 'Explore a vitrine da LDC Carpintaria e consulte disponibilidade, quantidades e entrega pelo WhatsApp.', catalog],
+  ['sobre.html', 'Sobre a LDC Carpintaria', 'Conheça a LDC Carpintaria e saiba como solicitar seu orçamento pelo WhatsApp.', about],
+  ['area-de-atendimento.html', 'Área de atendimento — LDC Carpintaria', 'Consulte entrega em Seropédica e Itaguaí, em um raio máximo de 20 km, mediante confirmação do endereço.', coverage],
+  ['contato.html', 'Contato e orçamento — LDC Carpintaria', 'Fale com a LDC Carpintaria pelo WhatsApp para consultar produtos e combinar seu pedido.', contact]
+];
+let css = original.match(/<style>([\s\S]*?)<\/style>/)[1];
+css += await readFile(path.join(root, 'site/extra.css'), 'utf8');
+await writeFile(path.join(output, 'assets/style.css'), css);
+await copyFile(path.join(root, 'site/config.js'), path.join(output, 'assets/config.js'));
+await copyFile(path.join(root, 'site/app.js'), path.join(output, 'assets/app.js'));
+for (const file of ['login.html', 'admin.html']) await copyFile(path.join(root, 'site', file), path.join(output, file));
+for (const file of ['admin.css', 'admin.js']) await copyFile(path.join(root, 'site', file), path.join(output, 'assets', file));
+await copyFile(path.join(root, '573816091_17847848052596195_2255176578593069298_n.jpg'), path.join(output, 'assets/logo.jpg'));
+// Arquivos adicionados em site/assets são copiados para dist/assets.
+async function copyAssets(source, target) {
+  await mkdir(target, { recursive: true });
+  for (const item of await readdir(source, { withFileTypes: true })) {
+    if (item.isDirectory()) await copyAssets(path.join(source, item.name), path.join(target, item.name));
+    else await copyFile(path.join(source, item.name), path.join(target, item.name));
+  }
+}
+await copyAssets(path.join(root, 'site/assets'), path.join(output, 'assets'));
+const baseUrl = config.siteUrl ? new URL(config.siteUrl) : null;
+for (const [file, title, description, main] of pages) {
+  const nav = links.map(([href, label]) => `<a href="${href}"${href === file ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const canonical = baseUrl ? `<link rel="canonical" href="${escape(new URL(file === 'index.html' ? './' : file, baseUrl).href)}">` : '';
+  const robots = config.demo ? '<meta name="robots" content="noindex, nofollow">' : '';
+  const banner = config.demo ? '<div class="review">VERSÃO LOCAL PARA REVISÃO · Produtos e categorias demonstrativos.</div>' : '';
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)}</title><meta name="description" content="${escape(description)}">${robots}${canonical}<meta name="theme-color" content="#24372e"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta property="og:type" content="website"><link rel="stylesheet" href="assets/style.css"><script src="assets/config.js" defer></script><script src="assets/app.js" defer></script></head><body><a class="skip-link" href="#conteudo">Pular para o conteúdo</a>${banner}<header class="header wrap"><a class="brand" href="index.html" aria-label="LDC Carpintaria, início"><img class="logo" src="assets/logo.jpg" alt="LDC Carpintaria e Marcenaria" width="150" height="150"></a><button class="btn secondary menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="navigation">Menu</button><nav class="nav" id="navigation" aria-label="Navegação principal">${nav}<button class="btn" data-contact>Falar pelo WhatsApp ↗</button></nav></header><main id="conteudo">${main}</main><footer class="footer wrap"><div><strong>LDC Carpintaria</strong><p>Seropédica e Itaguaí · raio máximo de 20 km.</p><p><a href="${escape(wa)}" target="_blank" rel="noopener noreferrer">WhatsApp: ${escape(config.phoneDisplay)}</a></p></div><nav class="footer-links" aria-label="Navegação do rodapé">${nav}</nav></footer><button class="btn floating" data-contact aria-label="Solicitar orçamento pelo WhatsApp">WhatsApp ↗</button><dialog class="dialog" id="quote-dialog" aria-labelledby="quote-title"><h2 id="quote-title">Contato em configuração</h2><p>O telefone ainda não está configurado. Esta é a mensagem preparada para o atendimento:</p><label for="quote-message">Mensagem de orçamento</label><textarea id="quote-message" readonly></textarea><form method="dialog"><button class="btn">Voltar ao site</button></form></dialog></body></html>`;
+  await writeFile(path.join(output, file), html.replace('content="#24372e"', 'content="#171717"').replace('</nav></footer>', '<a href="login.html">Área do administrador</a></nav></footer>'));
+}
+await writeFile(path.join(output, 'robots.txt'), config.demo ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\n${baseUrl ? `Sitemap: ${new URL('sitemap.xml', baseUrl).href}\n` : ''}`);
+if (baseUrl) await writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(([file]) => `<url><loc>${escape(new URL(file === 'index.html' ? './' : file, baseUrl).href)}</loc></url>`).join('')}</urlset>`);
+console.log('Build concluído: cinco páginas e recursos locais em dist/.');

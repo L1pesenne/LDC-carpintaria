@@ -1,0 +1,11 @@
+{
+  "name": "ldc-carpintaria",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "check:admin": "node scripts/check-admin.mjs",
+    "start": "node scripts/serve.mjs"
+  }
+}
